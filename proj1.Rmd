@@ -1,0 +1,81 @@
+---
+title: "Reproducible Research: Activity Monitoring"
+output: html_document
+---
+
+```{r setup, include=TRUE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(ggplot2)
+
+# Read the data; ensure activity.csv is in your project folder
+data <- read.csv("activity.csv")
+data$date <- as.Date(data$date, format = "%Y-%m-%d")
+
+# Calculate total steps per day, ignoring missing values
+steps_per_day <- data %>%
+    group_by(date) %>%
+    summarize(total_steps = sum(steps, na.rm = TRUE))
+
+# Plot histogram
+ggplot(steps_per_day, aes(x = total_steps)) +
+    geom_histogram(binwidth = 1000, fill = "steelblue", color = "white") +
+    labs(title = "Total Steps Per Day", x = "Steps", y = "Frequency")
+
+# Calculate Mean and Median
+mean_val <- mean(steps_per_day$total_steps, na.rm = TRUE)
+median_val <- median(steps_per_day$total_steps, na.rm = TRUE)
+
+
+interval_avg <- data %>%
+    group_by(interval) %>%
+    summarize(avg_steps = mean(steps, na.rm = TRUE))
+
+# Time series plot
+plot(interval_avg$interval, interval_avg$avg_steps, type = "l", col="blue",
+     main = "Average Daily Activity Pattern", xlab = "Interval", ylab = "Avg Steps")
+
+# Identify the maximum interval
+max_interval <- interval_avg[which.max(interval_avg$avg_steps), ]
+
+
+
+total_na <- sum(is.na(data$steps))
+
+# Fill NA values
+imputed_data <- data
+for (i in 1:nrow(imputed_data)) {
+    if (is.na(imputed_data$steps[i])) {
+        imputed_data$steps[i] <- interval_avg$avg_steps[interval_avg$interval == imputed_data$interval[i]]
+    }
+}
+
+# New histogram with filled data
+imputed_steps_per_day <- imputed_data %>%
+    group_by(date) %>%
+    summarize(total_steps = sum(steps))
+
+ggplot(imputed_steps_per_day, aes(x = total_steps)) +
+    geom_histogram(binwidth = 1000, fill = "darkgreen", color = "white") +
+    labs(title = "Total Steps Per Day (Imputed Data)", x = "Steps", y = "Frequency")
+
+new_mean <- mean(imputed_steps_per_day$total_steps)
+new_median <- median(imputed_steps_per_day$total_steps)
+
+# Create factor variable
+imputed_data$day_type <- ifelse(weekdays(imputed_data$date) %in% c("Saturday", "Sunday"), "weekend", "weekday")
+
+day_type_avg <- imputed_data %>%
+    group_by(interval, day_type) %>%
+    summarize(avg_steps = mean(steps))
+
+# Panel plot
+ggplot(day_type_avg, aes(x = interval, y = avg_steps)) +
+    geom_line(color = "darkred") +
+    facet_wrap(~day_type, ncol = 1) +
+    labs(title = "Weekday vs. Weekend Activity", x = "Interval", y = "Steps")
+
+
+
+
+
